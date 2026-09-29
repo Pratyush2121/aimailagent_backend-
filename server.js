@@ -17,9 +17,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Uploads directory configuration for Resume / Document files
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+const uploadsDir = process.env.VERCEL 
+  ? path.join('/tmp', 'uploads') 
+  : path.join(process.cwd(), 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  // Ignore in serverless environments
 }
 
 app.use(cors({ origin: '*' })); // Enable CORS for React frontend (Vite)
@@ -497,14 +503,18 @@ if (finalDistPath) {
   });
 }
 
-// Initialize database, then run server
-getDb()
-  .then(() => {
-    app.listen(PORT, () => {
-      logger.info(`Express server running on http://localhost:${PORT}`);
+// Initialize database, then run server if not in Vercel serverless environment
+if (!process.env.VERCEL) {
+  getDb()
+    .then(() => {
+      app.listen(PORT, () => {
+        logger.info(`Express server running on http://localhost:${PORT}`);
+      });
+    })
+    .catch(err => {
+      logger.error(`Failed to launch Express server: ${err.message}`);
+      process.exit(1);
     });
-  })
-  .catch(err => {
-    logger.error(`Failed to launch Express server: ${err.message}`);
-    process.exit(1);
-  });
+}
+
+export default app;
